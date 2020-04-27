@@ -16,6 +16,12 @@ struct Game {
     var phase: Phase = .ongoing(turn: .dark)
     var darkPlayer: Player = .manual
     var lightPlayer: Player = .manual
+
+    var board: Board
+
+    init(board: Board) {
+        self.board = board
+    }
 }
 
 extension Game {

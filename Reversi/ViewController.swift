@@ -18,7 +18,8 @@ class ViewController: UIViewController {
     @IBOutlet private var countLabels: [UILabel]!
     @IBOutlet private var playerActivityIndicators: [UIActivityIndicatorView]!
 
-    private var game = Game()
+    // TODO: Avoid hard coding 8
+    private var game = Game(board: Board(rows: 8, columns: 8))
     
     private var animationCanceller: Canceller?
     private var isAnimating: Bool { animationCanceller != nil }
@@ -56,10 +57,11 @@ extension ViewController {
     /// - Returns: `side` で指定された色のディスクの、盤上の枚数です。
     func countDisks(of side: Disk) -> Int {
         var count = 0
-        
-        for y in boardView.yRange {
-            for x in boardView.xRange {
-                if boardView.diskAt(x: x, y: y) == side {
+
+        let board = game.board
+        for x in 0..<board.rows {
+            for y in 0..<board.columns {
+                if board[x, y] == side {
                     count +=  1
                 }
             }
@@ -92,8 +94,9 @@ extension ViewController {
             (x: -1, y:  0),
             (x: -1, y:  1),
         ]
-        
-        guard boardView.diskAt(x: x, y: y) == nil else {
+
+        let board = game.board
+        guard board[x, y] == nil else {
             return []
         }
         
@@ -107,8 +110,9 @@ extension ViewController {
             flipping: while true {
                 x += direction.x
                 y += direction.y
-                
-                switch (disk, boardView.diskAt(x: x, y: y)) { // Uses tuples to make patterns exhaustive
+
+                guard 0..<board.rows ~= x && 0..<board.columns ~= y else { break flipping }
+                switch (disk, board[x, y]) { // Uses tuples to make patterns exhaustive
                 case (.dark, .some(.dark)), (.light, .some(.light)):
                     diskCoordinates.append(contentsOf: diskCoordinatesInLine)
                     break flipping
@@ -136,9 +140,10 @@ extension ViewController {
     /// - Returns: `side` で指定された色のディスクを置ける盤上のすべてのセルの座標の配列です。
     func validMoves(for side: Disk) -> [(x: Int, y: Int)] {
         var coordinates: [(Int, Int)] = []
-        
-        for y in boardView.yRange {
-            for x in boardView.xRange {
+
+        let board = game.board
+        for x in 0..<board.rows {
+            for y in 0..<board.columns {
                 if canPlaceDisk(side, atX: x, y: y) {
                     coordinates.append((x, y))
                 }
@@ -157,17 +162,24 @@ extension ViewController {
     ///     もし `animated` が `false` の場合、このクロージャは次の run loop サイクルの初めに実行されます。
     /// - Throws: もし `disk` を `x`, `y` で指定されるセルに置けない場合、 `DiskPlacementError` を `throw` します。
     func placeDisk(_ disk: Disk, atX x: Int, y: Int, animated isAnimated: Bool, completion: ((Bool) -> Void)? = nil) throws {
-        let diskCoordinates = flippedDiskCoordinatesByPlacingDisk(disk, atX: x, y: y)
-        if diskCoordinates.isEmpty {
+        let flippedDiskCoordinates = flippedDiskCoordinatesByPlacingDisk(disk, atX: x, y: y)
+        if flippedDiskCoordinates.isEmpty {
             throw DiskPlacementError(disk: disk, x: x, y: y)
         }
+        let diskCoordinates = [(x, y)] + flippedDiskCoordinates
+
+        var board = game.board
+        for (row, column) in diskCoordinates {
+            board[row, column] = disk
+        }
+        game.board = board
         
         if isAnimated {
             let cleanUp: () -> Void = { [weak self] in
                 self?.animationCanceller = nil
             }
             animationCanceller = Canceller(cleanUp)
-            animateSettingDisks(at: [(x, y)] + diskCoordinates, to: disk) { [weak self] isFinished in
+            animateSettingDisks(at: diskCoordinates, to: disk) { [weak self] isFinished in
                 guard let self = self else { return }
                 guard let canceller = self.animationCanceller else { return }
                 if canceller.isCancelled { return }
@@ -180,7 +192,6 @@ extension ViewController {
         } else {
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
-                self.boardView.setDisk(disk, atX: x, y: y, animated: false)
                 for (x, y) in diskCoordinates {
                     self.boardView.setDisk(disk, atX: x, y: y, animated: false)
                 }
@@ -225,11 +236,12 @@ extension ViewController {
     /// ゲームの状態を初期化し、新しいゲームを開始します。
     func newGame() {
         boardView.reset()
-        game = Game()
+        game = Game(board: Board(rows: boardView.height, columns: boardView.width))
 
         updateMessageViews()
         updateCountLabels()
         updatePlayerControls()
+        updateBoardView()
         
         try? saveGame()
     }
@@ -340,6 +352,17 @@ extension ViewController {
             playerControls[side.index].selectedSegmentIndex = game.player(of: side).rawValue
         }
     }
+
+    /// 現在の状況に応じて石を表示します。
+    func updateBoardView() {
+        let board = game.board
+        for x in 0..<board.rows {
+            for y in 0..<board.columns {
+                let disk = board[x, y]
+                boardView.setDisk(disk, atX: x, y: y, animated: false)
+            }
+        }
+    }
 }
 
 // MARK: Inputs
@@ -419,11 +442,12 @@ extension ViewController {
         output += game.phase.symbol
         output += "\(game.darkPlayer.rawValue)\(game.lightPlayer.rawValue)"
         output += "\n"
-        
-        for y in boardView.yRange {
-            for x in boardView.xRange {
+
+        let board = game.board
+        for row in 0..<board.rows {
+            for column in 0..<board.columns {
                 // TODO: Make "-" a case
-                output += boardView.diskAt(x: x, y: y)?.symbol ?? "-"
+                output += board[row, column]?.symbol ?? "-"
             }
             output += "\n"
         }
@@ -467,31 +491,31 @@ extension ViewController {
         }
 
         do { // board
-            guard lines.count == boardView.height else {
+            var board = game.board
+            guard lines.count == board.rows else {
                 throw FileIOError.read(path: path, cause: nil)
             }
             
-            var y = 0
+            var row = 0
             while let line = lines.popFirst() {
-                var x = 0
-                for character in line {
-                    let disk = Disk(symbol: "\(character)").flatMap { $0 }
-                    boardView.setDisk(disk, atX: x, y: y, animated: false)
-                    x += 1
-                }
-                guard x == boardView.width else {
+                guard line.count == board.columns else {
                     throw FileIOError.read(path: path, cause: nil)
                 }
-                y += 1
+                var column = 0
+                for character in line {
+                    let disk = Disk(symbol: "\(character)").flatMap { $0 }
+                    board[row, column] = disk
+                    column += 1
+                }
+                row += 1
             }
-            guard y == boardView.height else {
-                throw FileIOError.read(path: path, cause: nil)
-            }
+            game.board = board
         }
 
         updateMessageViews()
         updateCountLabels()
         updatePlayerControls()
+        updateBoardView()
     }
     
     enum FileIOError: Error {
