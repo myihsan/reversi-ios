@@ -438,19 +438,7 @@ extension ViewController {
     
     /// ゲームの状態をファイルに書き出し、保存します。
     func saveGame() throws {
-        var output: String = ""
-        output += game.phase.symbol
-        output += "\(game.darkPlayer.rawValue)\(game.lightPlayer.rawValue)"
-        output += "\n"
-
-        let board = game.board
-        for row in 0..<board.rows {
-            for column in 0..<board.columns {
-                // TODO: Make "-" a case
-                output += board[row, column]?.symbol ?? "-"
-            }
-            output += "\n"
-        }
+        let output = game.symbol
         
         do {
             try output.write(toFile: path, atomically: true, encoding: .utf8)
@@ -462,55 +450,10 @@ extension ViewController {
     /// ゲームの状態をファイルから読み込み、復元します。
     func loadGame() throws {
         let input = try String(contentsOfFile: path, encoding: .utf8)
-        var lines: ArraySlice<Substring> = input.split(separator: "\n")[...]
-        
-        guard var line = lines.popFirst() else {
+        guard let game = Game(symbol: input) else {
             throw FileIOError.read(path: path, cause: nil)
         }
-        
-        do { // turn
-            guard
-                let diskSymbol = line.popFirst(),
-                let phase = Game.Phase(symbol: diskSymbol.description)
-                else {
-                    throw FileIOError.read(path: path, cause: nil)
-            }
-            game.phase = phase
-        }
-
-        // players
-        for side in Disk.sides {
-            guard
-                let playerSymbol = line.popFirst(),
-                let playerNumber = Int(playerSymbol.description),
-                let player = Player(rawValue: playerNumber)
-                else {
-                    throw FileIOError.read(path: path, cause: nil)
-            }
-            game.setPlayer(player, for: side)
-        }
-
-        do { // board
-            var board = game.board
-            guard lines.count == board.rows else {
-                throw FileIOError.read(path: path, cause: nil)
-            }
-            
-            var row = 0
-            while let line = lines.popFirst() {
-                guard line.count == board.columns else {
-                    throw FileIOError.read(path: path, cause: nil)
-                }
-                var column = 0
-                for character in line {
-                    let disk = Disk(symbol: "\(character)").flatMap { $0 }
-                    board[row, column] = disk
-                    column += 1
-                }
-                row += 1
-            }
-            game.board = board
-        }
+        self.game = game
 
         updateMessageViews()
         updateCountLabels()
@@ -564,49 +507,6 @@ extension Disk {
         switch self {
         case .dark: return 0
         case .light: return 1
-        }
-    }
-}
-
-private extension Game.Phase {
-    init?<S: StringProtocol>(symbol: S) {
-        switch symbol {
-        case "-":
-            self = .ended
-        default:
-            guard let disk = Disk(symbol: symbol) else { return nil }
-            self = .ongoing(turn: disk)
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .ongoing(let turn):
-            return turn.symbol
-        case .ended:
-            return "-"
-        }
-    }
-}
-
-private extension Disk {
-    init?<S: StringProtocol>(symbol: S) {
-        switch symbol {
-        case "x":
-            self = .dark
-        case "o":
-            self = .light
-        default:
-            return nil
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .dark:
-            return "x"
-        case .light:
-            return "o"
         }
     }
 }
