@@ -1,18 +1,24 @@
 //
-//  GameState.swift
+//  Game.swift
 //  Reversi
 //
 //  Created by Jierong Li on 2020/04/27.
 //  Copyright © 2020 Yuta Koshizawa. All rights reserved.
 //
 
-struct GameState {
-    var phase: GamePhase = .ongoing(turn: .dark)
+struct Game {
+
+    enum Phase {
+        case ongoing(turn: Disk)
+        case ended
+    }
+
+    var phase: Phase = .ongoing(turn: .dark)
     var darkPlayer: Player = .manual
     var lightPlayer: Player = .manual
 }
 
-extension GameState {
+extension Game {
     var currentPlayer: Player? {
         switch phase {
         case .ongoing(let turn):

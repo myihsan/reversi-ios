@@ -18,7 +18,7 @@ class ViewController: UIViewController {
     @IBOutlet private var countLabels: [UILabel]!
     @IBOutlet private var playerActivityIndicators: [UIActivityIndicatorView]!
 
-    private var gameState = GameState()
+    private var game = Game()
     
     private var animationCanceller: Canceller?
     private var isAnimating: Bool { animationCanceller != nil }
@@ -225,7 +225,7 @@ extension ViewController {
     /// ゲームの状態を初期化し、新しいゲームを開始します。
     func newGame() {
         boardView.reset()
-        gameState = GameState()
+        game = Game()
 
         updateMessageViews()
         updateCountLabels()
@@ -236,7 +236,7 @@ extension ViewController {
     
     /// プレイヤーの行動を待ちます。
     func waitForPlayer() {
-        guard let player = gameState.currentPlayer else { return }
+        guard let player = game.currentPlayer else { return }
         switch player {
         case .manual:
             break
@@ -249,16 +249,16 @@ extension ViewController {
     /// もし、次のプレイヤーに有効な手が存在しない場合、パスとなります。
     /// 両プレイヤーに有効な手がない場合、ゲームの勝敗を表示します。
     func nextTurn() {
-        guard case .ongoing(var turn) = gameState.phase else { return }
+        guard case .ongoing(var turn) = game.phase else { return }
 
         turn.flip()
         
         if validMoves(for: turn).isEmpty {
             if validMoves(for: turn.flipped).isEmpty {
-                gameState.phase = .ended
+                game.phase = .ended
                 updateMessageViews()
             } else {
-                gameState.phase = .ongoing(turn: turn)
+                game.phase = .ongoing(turn: turn)
                 updateMessageViews()
                 
                 let alertController = UIAlertController(
@@ -272,7 +272,7 @@ extension ViewController {
                 present(alertController, animated: true)
             }
         } else {
-            gameState.phase = .ongoing(turn: turn)
+            game.phase = .ongoing(turn: turn)
             updateMessageViews()
             waitForPlayer()
         }
@@ -280,7 +280,7 @@ extension ViewController {
     
     /// "Computer" が選択されている場合のプレイヤーの行動を決定します。
     func playTurnOfComputer() {
-        guard case .ongoing(let turn) = gameState.phase else { preconditionFailure() }
+        guard case .ongoing(let turn) = game.phase else { preconditionFailure() }
         let (x, y) = validMoves(for: turn).randomElement()!
 
         playerActivityIndicators[turn.index].startAnimating()
@@ -317,7 +317,7 @@ extension ViewController {
     
     /// 現在の状況に応じてメッセージを表示します。
     func updateMessageViews() {
-        switch gameState.phase {
+        switch game.phase {
         case .ongoing(let turn):
             messageDiskSizeConstraint.constant = messageDiskSize
             messageDiskView.disk = turn
@@ -337,7 +337,7 @@ extension ViewController {
     /// 現在の状況に応じてプレイヤーのモードを表示します。
     func updatePlayerControls() {
         for side in Disk.sides {
-            playerControls[side.index].selectedSegmentIndex = gameState.player(of: side).rawValue
+            playerControls[side.index].selectedSegmentIndex = game.player(of: side).rawValue
         }
     }
 }
@@ -376,7 +376,7 @@ extension ViewController {
     @IBAction func changePlayerControlSegment(_ sender: UISegmentedControl) {
         let player = Player(rawValue: sender.selectedSegmentIndex)!
         let side: Disk = Disk(index: playerControls.firstIndex(of: sender)!)
-        gameState.setPlayer(player, for: side)
+        game.setPlayer(player, for: side)
 
         try? saveGame()
         
@@ -384,7 +384,7 @@ extension ViewController {
             canceller.cancel()
         }
         
-        if !isAnimating, case .ongoing(let turn) = gameState.phase, side == turn, case .computer = player {
+        if !isAnimating, case .ongoing(let turn) = game.phase, side == turn, case .computer = player {
             playTurnOfComputer()
         }
     }
@@ -396,9 +396,9 @@ extension ViewController: BoardViewDelegate {
     /// - Parameter x: セルの列です。
     /// - Parameter y: セルの行です。
     func boardView(_ boardView: BoardView, didSelectCellAtX x: Int, y: Int) {
-        guard case .ongoing(let turn) = gameState.phase else { return }
+        guard case .ongoing(let turn) = game.phase else { return }
         if isAnimating { return }
-        guard case .manual = gameState.player(of: turn) else { return }
+        guard case .manual = game.player(of: turn) else { return }
         // try? because doing nothing when an error occurs
         try? placeDisk(turn, atX: x, y: y, animated: true) { [weak self] _ in
             self?.nextTurn()
@@ -416,8 +416,8 @@ extension ViewController {
     /// ゲームの状態をファイルに書き出し、保存します。
     func saveGame() throws {
         var output: String = ""
-        output += gameState.phase.symbol
-        output += "\(gameState.darkPlayer.rawValue)\(gameState.lightPlayer.rawValue)"
+        output += game.phase.symbol
+        output += "\(game.darkPlayer.rawValue)\(game.lightPlayer.rawValue)"
         output += "\n"
         
         for y in boardView.yRange {
@@ -447,11 +447,11 @@ extension ViewController {
         do { // turn
             guard
                 let diskSymbol = line.popFirst(),
-                let phase = GamePhase(symbol: diskSymbol.description)
+                let phase = Game.Phase(symbol: diskSymbol.description)
                 else {
                     throw FileIOError.read(path: path, cause: nil)
             }
-            gameState.phase = phase
+            game.phase = phase
         }
 
         // players
@@ -463,7 +463,7 @@ extension ViewController {
                 else {
                     throw FileIOError.read(path: path, cause: nil)
             }
-            gameState.setPlayer(player, for: side)
+            game.setPlayer(player, for: side)
         }
 
         do { // board
@@ -544,7 +544,7 @@ extension Disk {
     }
 }
 
-private extension GamePhase {
+private extension Game.Phase {
     init?<S: StringProtocol>(symbol: S) {
         switch symbol {
         case "-":
