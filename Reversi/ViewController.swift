@@ -226,21 +226,18 @@ extension ViewController {
     func newGame() {
         boardView.reset()
         gameState = GameState()
-        
-        for playerControl in playerControls {
-            playerControl.selectedSegmentIndex = Player.manual.rawValue
-        }
 
         updateMessageViews()
         updateCountLabels()
+        updatePlayerControls()
         
         try? saveGame()
     }
     
     /// プレイヤーの行動を待ちます。
     func waitForPlayer() {
-        guard case .ongoing(let turn) = gameState.phase else { return }
-        switch Player(rawValue: playerControls[turn.index].selectedSegmentIndex)! {
+        guard let player = gameState.currentPlayer else { return }
+        switch player {
         case .manual:
             break
         case .computer:
@@ -336,6 +333,13 @@ extension ViewController {
             }
         }
     }
+
+    /// 現在の状況に応じてプレイヤーのモードを表示します。
+    func updatePlayerControls() {
+        for side in Disk.sides {
+            playerControls[side.index].selectedSegmentIndex = gameState.player(of: side).rawValue
+        }
+    }
 }
 
 // MARK: Inputs
@@ -370,15 +374,17 @@ extension ViewController {
     
     /// プレイヤーのモードが変更された場合に呼ばれるハンドラーです。
     @IBAction func changePlayerControlSegment(_ sender: UISegmentedControl) {
+        let player = Player(rawValue: sender.selectedSegmentIndex)!
         let side: Disk = Disk(index: playerControls.firstIndex(of: sender)!)
-        
+        gameState.setPlayer(player, for: side)
+
         try? saveGame()
         
         if let canceller = playerCancellers[side] {
             canceller.cancel()
         }
         
-        if !isAnimating, case .ongoing(let turn) = gameState.phase, side == turn, case .computer = Player(rawValue: sender.selectedSegmentIndex)! {
+        if !isAnimating, case .ongoing(let turn) = gameState.phase, side == turn, case .computer = player {
             playTurnOfComputer()
         }
     }
@@ -392,7 +398,7 @@ extension ViewController: BoardViewDelegate {
     func boardView(_ boardView: BoardView, didSelectCellAtX x: Int, y: Int) {
         guard case .ongoing(let turn) = gameState.phase else { return }
         if isAnimating { return }
-        guard case .manual = Player(rawValue: playerControls[turn.index].selectedSegmentIndex)! else { return }
+        guard case .manual = gameState.player(of: turn) else { return }
         // try? because doing nothing when an error occurs
         try? placeDisk(turn, atX: x, y: y, animated: true) { [weak self] _ in
             self?.nextTurn()
@@ -411,9 +417,7 @@ extension ViewController {
     func saveGame() throws {
         var output: String = ""
         output += gameState.phase.symbol
-        for side in Disk.sides {
-            output += playerControls[side.index].selectedSegmentIndex.description
-        }
+        output += "\(gameState.darkPlayer.rawValue)\(gameState.lightPlayer.rawValue)"
         output += "\n"
         
         for y in boardView.yRange {
@@ -459,7 +463,7 @@ extension ViewController {
                 else {
                     throw FileIOError.read(path: path, cause: nil)
             }
-            playerControls[side.index].selectedSegmentIndex = player.rawValue
+            gameState.setPlayer(player, for: side)
         }
 
         do { // board
@@ -487,6 +491,7 @@ extension ViewController {
 
         updateMessageViews()
         updateCountLabels()
+        updatePlayerControls()
     }
     
     enum FileIOError: Error {
