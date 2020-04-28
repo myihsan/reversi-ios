@@ -20,6 +20,7 @@ class ViewController: UIViewController {
 
     // TODO: Avoid hard coding 8
     private var game = Game(board: Board(rows: 8, columns: 8))
+    private let boardCounter = BoardCounter()
     
     private var animationCanceller: Canceller?
     private var isAnimating: Bool { animationCanceller != nil }
@@ -52,37 +53,7 @@ class ViewController: UIViewController {
 // MARK: Reversi logics
 
 extension ViewController {
-    /// `side` で指定された色のディスクが盤上に置かれている枚数を返します。
-    /// - Parameter side: 数えるディスクの色です。
-    /// - Returns: `side` で指定された色のディスクの、盤上の枚数です。
-    func countDisks(of side: Disk) -> Int {
-        var count = 0
 
-        let board = game.board
-        for x in 0..<board.rows {
-            for y in 0..<board.columns {
-                if board[x, y] == side {
-                    count +=  1
-                }
-            }
-        }
-        
-        return count
-    }
-    
-    /// 盤上に置かれたディスクの枚数が多い方の色を返します。
-    /// 引き分けの場合は `nil` が返されます。
-    /// - Returns: 盤上に置かれたディスクの枚数が多い方の色です。引き分けの場合は `nil` を返します。
-    func sideWithMoreDisks() -> Disk? {
-        let darkCount = countDisks(of: .dark)
-        let lightCount = countDisks(of: .light)
-        if darkCount == lightCount {
-            return nil
-        } else {
-            return darkCount > lightCount ? .dark : .light
-        }
-    }
-    
     private func flippedDiskCoordinatesByPlacingDisk(_ disk: Disk, atX x: Int, y: Int) -> [(Int, Int)] {
         let directions = [
             (x: -1, y: -1),
@@ -323,7 +294,7 @@ extension ViewController {
     /// 各プレイヤーの獲得したディスクの枚数を表示します。
     func updateCountLabels() {
         for side in Disk.sides {
-            countLabels[side.index].text = "\(countDisks(of: side))"
+            countLabels[side.index].text = "\(boardCounter.countDisks(of: side, in: game.board))"
         }
     }
     
@@ -335,7 +306,7 @@ extension ViewController {
             messageDiskView.disk = turn
             messageLabel.text = "'s turn"
         case .ended:
-            if let winner = self.sideWithMoreDisks() {
+            if let winner = boardCounter.sideWithMoreDisks(in: game.board) {
                 messageDiskSizeConstraint.constant = messageDiskSize
                 messageDiskView.disk = winner
                 messageLabel.text = " won"
