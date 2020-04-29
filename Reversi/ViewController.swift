@@ -163,33 +163,32 @@ extension ViewController {
     /// もし、次のプレイヤーに有効な手が存在しない場合、パスとなります。
     /// 両プレイヤーに有効な手がない場合、ゲームの勝敗を表示します。
     func nextTurn() {
-        guard case .ongoing(var turn) = game.phase else { return }
+        guard case .ongoing(let turn) = game.phase else { return }
 
-        turn.flip()
-        
-        if reversiRuler.validMoves(for: turn, in: game.board).isEmpty {
-            if reversiRuler.validMoves(for: turn.flipped, in: game.board).isEmpty {
-                game.phase = .ended
-                updateMessageViews()
-            } else {
-                game.phase = .ongoing(turn: turn)
-                updateMessageViews()
-                
-                let alertController = UIAlertController(
-                    title: "Pass",
-                    message: "Cannot place a disk.",
-                    preferredStyle: .alert
-                )
-                alertController.addAction(UIAlertAction(title: "Dismiss", style: .default) { [weak self] _ in
-                    self?.nextTurn()
-                })
-                present(alertController, animated: true)
+        let nextPhase = reversiRuler.nextPhase(of: game)
+        game.phase = nextPhase
+
+        switch nextPhase {
+        case .ongoing(let nextTurn):
+            guard nextTurn == turn else {
+                waitForPlayer()
+                fallthrough
             }
-        } else {
-            game.phase = .ongoing(turn: turn)
-            updateMessageViews()
-            waitForPlayer()
+            game.phase = .ongoing(turn: turn.flipped)
+            let alertController = UIAlertController(
+                title: "Pass",
+                message: "Cannot place a disk.",
+                preferredStyle: .alert
+            )
+            alertController.addAction(UIAlertAction(title: "Dismiss", style: .default) { [weak self] _ in
+                self?.nextTurn()
+            })
+            present(alertController, animated: true)
+        default:
+            break
         }
+
+        updateMessageViews()
     }
     
     /// "Computer" が選択されている場合のプレイヤーの行動を決定します。

@@ -75,4 +75,20 @@ class ReversiRuler {
 
         return coordinates
     }
+
+    func nextPhase(of game: Game) -> Game.Phase {
+        guard case .ongoing(let turn) = game.phase else { return .ended }
+
+        let nextTurn = turn.flipped
+
+        if validMoves(for: nextTurn, in: game.board).isEmpty {
+            if validMoves(for: nextTurn.flipped, in: game.board).isEmpty {
+                return .ended
+            } else {
+                return .ongoing(turn: turn)
+            }
+        } else {
+            return .ongoing(turn: nextTurn)
+        }
+    }
 }
