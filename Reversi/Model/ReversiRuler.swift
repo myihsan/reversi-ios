@@ -6,7 +6,7 @@
 //  Copyright © 2020 Yuta Koshizawa. All rights reserved.
 //
 
-class ReversiRuler {
+class ReversiRuler: Ruler {
 
     func flippedDiskCoordinatesByPlacingDisk(_ disk: Disk, atX x: Int, y: Int, in board: Board) -> [(Int, Int)] {
         let directions = [

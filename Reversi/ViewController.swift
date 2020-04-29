@@ -22,6 +22,7 @@ class ViewController: UIViewController {
     private var game = Game(board: Board(rows: 8, columns: 8))
     private let boardCounter = BoardCounter()
     private let reversiRuler = ReversiRuler()
+    private lazy var computer = Computer(ruler: reversiRuler)
     
     private var animationCanceller: Canceller?
     private var isAnimating: Bool { animationCanceller != nil }
@@ -194,21 +195,14 @@ extension ViewController {
     /// "Computer" が選択されている場合のプレイヤーの行動を決定します。
     func playTurnOfComputer() {
         guard case .ongoing(let turn) = game.phase else { preconditionFailure() }
-        let (x, y) = reversiRuler.validMoves(for: turn, in: game.board).randomElement()!
 
         playerActivityIndicators[turn.index].startAnimating()
-        
-        let cleanUp: () -> Void = { [weak self] in
+        let canceller = computer.getMove(for: turn, in: game.board) { [weak self] move in
             guard let self = self else { return }
             self.playerActivityIndicators[turn.index].stopAnimating()
             self.playerCancellers[turn] = nil
-        }
-        let canceller = Canceller(cleanUp)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-            guard let self = self else { return }
-            if canceller.isCancelled { return }
-            cleanUp()
-            
+
+            guard let (x, y) = move else { return }
             try! self.placeDisk(turn, atX: x, y: y, animated: true) { [weak self] _ in
                 self?.nextTurn()
             }
@@ -369,21 +363,6 @@ extension ViewController {
 }
 
 // MARK: Additional types
-
-final class Canceller {
-    private(set) var isCancelled: Bool = false
-    private let body: (() -> Void)?
-    
-    init(_ body: (() -> Void)?) {
-        self.body = body
-    }
-    
-    func cancel() {
-        if isCancelled { return }
-        isCancelled = true
-        body?()
-    }
-}
 
 struct DiskPlacementError: Error {
     let disk: Disk
