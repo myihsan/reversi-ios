@@ -18,8 +18,7 @@ class ViewController: UIViewController {
     @IBOutlet private var countLabels: [UILabel]!
     @IBOutlet private var playerActivityIndicators: [UIActivityIndicatorView]!
 
-    // TODO: Avoid hard coding 8
-    private var game = Game(board: Board(rows: 8, columns: 8))
+    private lazy var game: Game = Game(board: Board(rows: boardView.height, columns: boardView.width))
     private var gameRepository: GameRepository = {
         let path = (NSSearchPathForDirectoriesInDomains(.libraryDirectory, .userDomainMask, true).first! as NSString).appendingPathComponent("Game")
         return GameRepository(path: path)
