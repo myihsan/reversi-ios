@@ -27,9 +27,6 @@ class ViewController: UIViewController {
     private let reversiRuler = ReversiRuler()
     private lazy var computer = Computer(ruler: reversiRuler)
     
-    private var animationCanceller: Canceller?
-    private var isAnimating: Bool { animationCanceller != nil }
-    
     private var playerCancellers: [Disk: Canceller] = [:]
     
     override func viewDidLoad() {
@@ -81,59 +78,11 @@ extension ViewController {
             board[row, column] = disk
         }
         game.board = board
-        
-        if isAnimated {
-            let cleanUp: () -> Void = { [weak self] in
-                self?.animationCanceller = nil
-            }
-            animationCanceller = Canceller(cleanUp)
-            animateSettingDisks(at: diskCoordinates, to: disk) { [weak self] isFinished in
-                guard let self = self else { return }
-                guard let canceller = self.animationCanceller else { return }
-                if canceller.isCancelled { return }
-                cleanUp()
 
-                completion?(isFinished)
-                try? self.gameRepository.saveGame(self.game)
-                self.updateCountLabels()
-            }
-        } else {
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                for (x, y) in diskCoordinates {
-                    self.boardView.setDisk(disk, atX: x, y: y, animated: false)
-                }
-                completion?(true)
-                try? self.gameRepository.saveGame(self.game)
-                self.updateCountLabels()
-            }
-        }
-    }
-    
-    /// `coordinates` で指定されたセルに、アニメーションしながら順番に `disk` を置く。
-    /// `coordinates` から先頭の座標を取得してそのセルに `disk` を置き、
-    /// 残りの座標についてこのメソッドを再帰呼び出しすることで処理が行われる。
-    /// すべてのセルに `disk` が置けたら `completion` ハンドラーが呼び出される。
-    private func animateSettingDisks<C: Collection>(at coordinates: C, to disk: Disk, completion: @escaping (Bool) -> Void)
-        where C.Element == (Int, Int)
-    {
-        guard let (x, y) = coordinates.first else {
-            completion(true)
-            return
-        }
-        
-        let animationCanceller = self.animationCanceller!
-        boardView.setDisk(disk, atX: x, y: y, animated: true) { [weak self] isFinished in
-            guard let self = self else { return }
-            if animationCanceller.isCancelled { return }
-            if isFinished {
-                self.animateSettingDisks(at: coordinates.dropFirst(), to: disk, completion: completion)
-            } else {
-                for (x, y) in coordinates {
-                    self.boardView.setDisk(disk, atX: x, y: y, animated: false)
-                }
-                completion(false)
-            }
+        boardView.setDisks(at: diskCoordinates, to: disk, animated: isAnimated) { isFinished in
+            completion?(isFinished)
+            try? self.gameRepository.saveGame(self.game)
+            self.updateCountLabels()
         }
     }
 }
@@ -262,7 +211,7 @@ extension ViewController {
         for x in 0..<board.rows {
             for y in 0..<board.columns {
                 let disk = board[x, y]
-                boardView.setDisk(disk, atX: x, y: y, animated: false)
+                boardView.setDisk(disk, atX: x, y: y)
             }
         }
     }
@@ -284,8 +233,7 @@ extension ViewController {
         alertController.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
             guard let self = self else { return }
             
-            self.animationCanceller?.cancel()
-            self.animationCanceller = nil
+            self.boardView.cancelAnimation()
             
             for side in Disk.sides {
                 self.playerCancellers[side]?.cancel()
@@ -311,7 +259,7 @@ extension ViewController {
             canceller.cancel()
         }
         
-        if !isAnimating, case .ongoing(let turn) = game.phase, side == turn, case .computer = player {
+        if !boardView.isAnimating, case .ongoing(let turn) = game.phase, side == turn, case .computer = player {
             playTurnOfComputer()
         }
     }
@@ -324,7 +272,7 @@ extension ViewController: BoardViewDelegate {
     /// - Parameter y: セルの行です。
     func boardView(_ boardView: BoardView, didSelectCellAtX x: Int, y: Int) {
         guard case .ongoing(let turn) = game.phase else { return }
-        if isAnimating { return }
+        if boardView.isAnimating { return }
         guard case .manual = game.player(of: turn) else { return }
         // try? because doing nothing when an error occurs
         try? placeDisk(turn, atX: x, y: y, animated: true) { [weak self] _ in

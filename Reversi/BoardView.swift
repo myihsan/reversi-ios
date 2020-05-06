@@ -5,6 +5,8 @@ private let lineWidth: CGFloat = 2
 public class BoardView: UIView {
     private var cellViews: [CellView] = []
     private var actions: [CellSelectionAction] = []
+    private var animationCanceller: Canceller?
+    var isAnimating: Bool { animationCanceller != nil }
     
     /// 盤の幅（ `8` ）を表します。
     public let width: Int = 8
@@ -131,6 +133,10 @@ public class BoardView: UIView {
     public func diskAt(x: Int, y: Int) -> Disk? {
         cellViewAt(x: x, y: y)?.disk
     }
+
+    func setDisk(_ disk: Disk?, atX x: Int, y: Int, completion: ((Bool) -> Void)? = nil) {
+        setDisk(disk, atX: x, y: y, animated: false)
+    }
     
     /// `x`, `y` で指定されたセルの状態を、与えられた `disk` に変更します。
     /// `animated` が `true` の場合、アニメーションが実行されます。
@@ -142,11 +148,71 @@ public class BoardView: UIView {
     /// - Parameter completion: アニメーションの完了通知を受け取るハンドラーです。
     ///     `animated` に `false` が指定された場合は状態が変更された後で即座に同期的に呼び出されます。
     ///     ハンドラーが受け取る `Bool` 値は、 `UIView.animate()`  等に準じます。
-    public func setDisk(_ disk: Disk?, atX x: Int, y: Int, animated: Bool, completion: ((Bool) -> Void)? = nil) {
+    private func setDisk(_ disk: Disk?, atX x: Int, y: Int, animated: Bool, completion: ((Bool) -> Void)? = nil) {
         guard let cellView = cellViewAt(x: x, y: y) else {
             preconditionFailure() // FIXME: Add a message.
         }
         cellView.setDisk(disk, animated: animated, completion: completion)
+    }
+
+    func setDisks<C: Collection>(at coordinates: C, to disk: Disk, animated isAnimated: Bool, completion: @escaping (Bool) -> Void)
+        where C.Element == (Int, Int)
+    {
+        if isAnimated {
+            let cleanUp: () -> Void = { [weak self] in
+                self?.animationCanceller = nil
+            }
+            animationCanceller = Canceller(cleanUp)
+            animateSettingDisks(at: coordinates, to: disk) { [weak self] isFinished in
+                guard let self = self else { return }
+                guard let canceller = self.animationCanceller else { return }
+                if canceller.isCancelled { return }
+                cleanUp()
+
+                completion(isFinished)
+            }
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                for (x, y) in coordinates {
+                    self.setDisk(disk, atX: x, y: y, animated: false)
+                }
+                completion(true)
+            }
+        }
+    }
+
+    func cancelAnimation() {
+        guard let animationCanceller = animationCanceller else { return }
+        animationCanceller.cancel()
+        self.animationCanceller = nil
+    }
+
+    /// `coordinates` で指定されたセルに、アニメーションしながら順番に `disk` を置く。
+    /// `coordinates` から先頭の座標を取得してそのセルに `disk` を置き、
+    /// 残りの座標についてこのメソッドを再帰呼び出しすることで処理が行われる。
+    /// すべてのセルに `disk` が置けたら `completion` ハンドラーが呼び出される。
+    private func animateSettingDisks<C: Collection>(at coordinates: C, to disk: Disk, completion: @escaping (Bool) -> Void)
+        where C.Element == (Int, Int)
+    {
+        guard let (x, y) = coordinates.first else {
+            completion(true)
+            return
+        }
+
+        let animationCanceller = self.animationCanceller!
+        setDisk(disk, atX: x, y: y, animated: true) { [weak self] isFinished in
+            guard let self = self else { return }
+            if animationCanceller.isCancelled { return }
+            if isFinished {
+                self.animateSettingDisks(at: coordinates.dropFirst(), to: disk, completion: completion)
+            } else {
+                for (x, y) in coordinates {
+                    self.setDisk(disk, atX: x, y: y, animated: false)
+                }
+                completion(false)
+            }
+        }
     }
 }
 
