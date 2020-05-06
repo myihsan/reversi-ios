@@ -20,6 +20,10 @@ class ViewController: UIViewController {
 
     // TODO: Avoid hard coding 8
     private var game = Game(board: Board(rows: 8, columns: 8))
+    private var gameRepository: GameRepository = {
+        let path = (NSSearchPathForDirectoriesInDomains(.libraryDirectory, .userDomainMask, true).first! as NSString).appendingPathComponent("Game")
+        return GameRepository(path: path)
+    }()
     private let boardCounter = BoardCounter()
     private let reversiRuler = ReversiRuler()
     private lazy var computer = Computer(ruler: reversiRuler)
@@ -36,10 +40,12 @@ class ViewController: UIViewController {
         messageDiskSize = messageDiskSizeConstraint.constant
         
         do {
-            try loadGame()
+            game = try gameRepository.loadGame()
         } catch _ {
             newGame()
         }
+
+        syncViewsWithGame()
     }
     
     private var viewHasAppeared: Bool = false
@@ -89,7 +95,7 @@ extension ViewController {
                 cleanUp()
 
                 completion?(isFinished)
-                try? self.saveGame()
+                try? self.gameRepository.saveGame(self.game)
                 self.updateCountLabels()
             }
         } else {
@@ -99,7 +105,7 @@ extension ViewController {
                     self.boardView.setDisk(disk, atX: x, y: y, animated: false)
                 }
                 completion?(true)
-                try? self.saveGame()
+                try? self.gameRepository.saveGame(self.game)
                 self.updateCountLabels()
             }
         }
@@ -141,12 +147,7 @@ extension ViewController {
         boardView.reset()
         game = Game(board: Board(rows: boardView.height, columns: boardView.width))
 
-        updateMessageViews()
-        updateCountLabels()
-        updatePlayerControls()
-        updateBoardView()
-        
-        try? saveGame()
+        try? gameRepository.saveGame(game)
     }
     
     /// プレイヤーの行動を待ちます。
@@ -215,6 +216,14 @@ extension ViewController {
 // MARK: Views
 
 extension ViewController {
+
+    func syncViewsWithGame() {
+        updateMessageViews()
+        updateCountLabels()
+        updatePlayerControls()
+        updateBoardView()
+    }
+
     /// 各プレイヤーの獲得したディスクの枚数を表示します。
     func updateCountLabels() {
         for side in Disk.sides {
@@ -285,6 +294,7 @@ extension ViewController {
             }
             
             self.newGame()
+            self.syncViewsWithGame()
             self.waitForPlayer()
         })
         present(alertController, animated: true)
@@ -296,7 +306,7 @@ extension ViewController {
         let side: Disk = Disk(index: playerControls.firstIndex(of: sender)!)
         game.setPlayer(player, for: side)
 
-        try? saveGame()
+        try? gameRepository.saveGame(game)
         
         if let canceller = playerCancellers[side] {
             canceller.cancel()
@@ -321,44 +331,6 @@ extension ViewController: BoardViewDelegate {
         try? placeDisk(turn, atX: x, y: y, animated: true) { [weak self] _ in
             self?.nextTurn()
         }
-    }
-}
-
-// MARK: Save and Load
-
-extension ViewController {
-    private var path: String {
-        (NSSearchPathForDirectoriesInDomains(.libraryDirectory, .userDomainMask, true).first! as NSString).appendingPathComponent("Game")
-    }
-    
-    /// ゲームの状態をファイルに書き出し、保存します。
-    func saveGame() throws {
-        let output = game.symbol
-        
-        do {
-            try output.write(toFile: path, atomically: true, encoding: .utf8)
-        } catch let error {
-            throw FileIOError.read(path: path, cause: error)
-        }
-    }
-    
-    /// ゲームの状態をファイルから読み込み、復元します。
-    func loadGame() throws {
-        let input = try String(contentsOfFile: path, encoding: .utf8)
-        guard let game = Game(symbol: input) else {
-            throw FileIOError.read(path: path, cause: nil)
-        }
-        self.game = game
-
-        updateMessageViews()
-        updateCountLabels()
-        updatePlayerControls()
-        updateBoardView()
-    }
-    
-    enum FileIOError: Error {
-        case write(path: String, cause: Error?)
-        case read(path: String, cause: Error?)
     }
 }
 

@@ -15,6 +15,7 @@
 		BB944D432459701E00611739 /* Canceller.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB944D422459701E00611739 /* Canceller.swift */; };
 		BB944D452459706400611739 /* Computer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB944D442459706400611739 /* Computer.swift */; };
 		BB944D472459709500611739 /* Ruler.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB944D462459709500611739 /* Ruler.swift */; };
+		BB9894F224629F9D008273F1 /* GameRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9894F124629F9D008273F1 /* GameRepository.swift */; };
 		D636B39F23D35043007F370F /* DiskView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D636B39E23D35043007F370F /* DiskView.swift */; };
 		D642BDB423A9FE4500396732 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D642BDB323A9FE4500396732 /* AppDelegate.swift */; };
 		D642BDB623A9FE4500396732 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D642BDB523A9FE4500396732 /* SceneDelegate.swift */; };
@@ -47,6 +48,7 @@
 		BB944D422459701E00611739 /* Canceller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Canceller.swift; sourceTree = "<group>"; };
 		BB944D442459706400611739 /* Computer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Computer.swift; sourceTree = "<group>"; };
 		BB944D462459709500611739 /* Ruler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Ruler.swift; sourceTree = "<group>"; };
+		BB9894F124629F9D008273F1 /* GameRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameRepository.swift; sourceTree = "<group>"; };
 		D636B39E23D35043007F370F /* DiskView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskView.swift; sourceTree = "<group>"; };
 		D642BDB023A9FE4500396732 /* Reversi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Reversi.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D642BDB323A9FE4500396732 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -94,6 +96,7 @@
 				BB944D402457C1D200611739 /* ReversiRuler.swift */,
 				BB944D422459701E00611739 /* Canceller.swift */,
 				BB944D442459706400611739 /* Computer.swift */,
+				BB9894F124629F9D008273F1 /* GameRepository.swift */,
 			);
 			path = Model;
 			sourceTree = "<group>";
@@ -261,6 +264,7 @@
 				D642BDB823A9FE4500396732 /* ViewController.swift in Sources */,
 				D642BDDC23AA137C00396732 /* BoardView.swift in Sources */,
 				BB944D472459709500611739 /* Ruler.swift in Sources */,
+				BB9894F224629F9D008273F1 /* GameRepository.swift in Sources */,
 				BB5BA12224566FCB00922DBA /* Game.swift in Sources */,
 				D642BDB423A9FE4500396732 /* AppDelegate.swift in Sources */,
 				BB944D30245671C500611739 /* Player.swift in Sources */,
